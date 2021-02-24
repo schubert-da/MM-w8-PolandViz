@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<head>
+    <title>Document</title>
+    <script src="https://d3js.org/d3.v4.js"></script>
+    <script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+    <script src="https://d3js.org/d3-geo-projection.v2.min.js"></script>
+    <script src="//d3js.org/topojson.v1.min.js"></script>
+    <style>
+        body{
+            background: #000;
+        }
+
+        svg{
+            border: 1px solid black;
+            background-color: #bbb;
+        }
+
+        .vizContainer{
+            border: 1px solid #4d4d4d;
+            padding: 5px 10px;
+            width: 500px;
+            background: #fff;
+        }
+
+        .viz{
+            margin: auto;
+            width: 50%;
+        }
+
+        button{
+            border-radius: 0px;
+            background: #222;
+            color: #eee;
+            outline: none;
+            border: 1px solid #4d4d4d;
+            margin-bottom: 5px;
+        }
+
+        .vizDescription{
+            font-size: 15px;
+            color: #222;
+        }
+
+        .vizFooter{
+            font-size: 11px;
+            color: #222;
+            line-height: 1.3;
+        }
+    
+        p{
+            margin-top: 0px;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="viz">
+        <div class="vizContainer">
+            <div class="vizDescription">
+                <h2 style="margin: 0px 0px 5px 0px; ">The Fight for <span style="color:#D32727">Abortion Rights in Poland</span></h3>
+                <p>On 22nd of October 2020, the Constitutional Tribunal of Poland <b>ruled abortion in case of fetal malformations unconstitutional</b>. 
+                The vast majority of people opposed this ruling, which practically bans legal abortion in Poland.
+                </p>
+                <p>
+                The following shows the <span style="color:#D32727; font-weight: bold;">spread of protesting</span> as people took to the streets since <b>19th October</b>.
+                </p>
+                <button onclick="drawData()">Replay</button>
+            </div>
+            <svg id="my_dataviz" width="500" height="450"></svg>
+            <div class="vizFooter">
+                <b>Data source:</b> Ogólnopolski Strajk Kobiet (@strajkkobiet)<br>
+                <b>Prepared by:</b> Hanna Nykowska (@hanykowska) <br>
+                <b>Design:</b> Schubert de Abreu (@schubertda1)
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // The svg
+        var svg = d3.select("svg"),
+            width = +svg.attr("width"),
+            height = +svg.attr("height");
+        
+        // Map and projection
+        var projection = d3.geoMercator().translate([width/2, height/2]).scale(2700).center([19,52]);
+        var path = d3.geoPath().projection(projection);
+        
+        // Data for the provinces
+        d3.json("poland-provinces.json", function(values){   
+            var geojson = topojson.feature(values, values.objects.POL_adm1);
+
+            var regions = svg.selectAll("path")
+            .data(geojson.features)
+            .enter()
+            .append("path")
+                .attr("fill", "#fff")
+                .attr("d", path)
+                .style("stroke", "#999")
+        })
+
+        // Function to draw the circles
+        function drawData(){
+        // Will clear existing circles in case we are replaying the viz
+        d3.selectAll("circle").remove()
+        
+        // Loading protest data
+        d3.csv("protests_map.csv", 
+            function(d){
+                d.DateTime  =  d3.timeParse("%d-%m-%Y %H:%M")(d.DateTime)
+                return d
+            },
+            
+            function(data){
+
+            data = data.sort((a,b) => d3.ascending(a.DateTime,b.DateTime))
+            var endDates = d3.extent(data, d => d.DateTime)
+            
+            var delayParam = 750; // Used to adjust the rate at which circles appear
+
+                svg.selectAll("circle")
+                    .data(data)
+                    .enter()
+                    .append("circle")
+                    .attr("class", "circle")
+                    .attr("cx", d => projection([+d.Longitude, +d.Latitude])[0])
+                    .attr("cy", d => projection([+d.Longitude, +d.Latitude])[1])
+					.attr("r", 0)
+                    .style("fill", "#C42424")
+                    .style("opacity", 0.70)
+                    .transition()
+                    .duration(2000)
+                    .delay((d)=> (d.DateTime.getTime() - endDates[0].getTime()) * delayParam / (1000*60*60*24)  ) // Delays by the difference in days from the start Date(float)
+					.attr("r", 7)
+                    .style("stroke", "none")
+                    .transition()
+                    .duration(1000)
+                    .delay((d,i) => 5)
+                    .attr("r", 0)
+                    .remove();   
+                })   
+            }
+
+            drawData()
+        </script>
+</body>
+</html>
